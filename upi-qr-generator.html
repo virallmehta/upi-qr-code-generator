@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UPI QR Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold: #f5c842;
+      --gold-dark: #c8960c;
+      --gold-dim: rgba(255,200,100,0.2);
+      --bg: #0d0d1a;
+      --card: #12122b;
+      --text: #f8f5f0;
+      --text-dim: rgba(248,245,240,0.4);
+      --text-faint: rgba(248,245,240,0.25);
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      font-family: 'Georgia', serif;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 440px;
+      background: linear-gradient(145deg, #12122b, #0a0a1a);
+      border: 1px solid rgba(255,200,100,0.15);
+      border-radius: 20px;
+      padding: 36px 32px;
+      box-shadow: 0 0 60px rgba(255,180,50,0.06), 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    /* Header */
+    .header { text-align: center; margin-bottom: 32px; }
+    .icon-ring {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,200,100,0.3), rgba(255,200,100,0.05));
+      border: 1px solid rgba(255,200,100,0.4);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 16px;
+      font-size: 22px;
+      color: var(--gold);
+    }
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+    .subtitle {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+    }
+
+    /* Form */
+    .field { margin-bottom: 18px; }
+    .field-label {
+      display: block;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(255,200,100,0.7);
+      margin-bottom: 6px;
+    }
+    .field input {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,200,100,0.2);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 12px 16px;
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .field input:focus {
+      border-color: rgba(255,200,100,0.7);
+      background: rgba(255,200,100,0.06);
+    }
+    .field input::placeholder { color: rgba(248,245,240,0.3); }
+
+    /* Buttons */
+    .btn {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: all 0.2s;
+      padding: 13px;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary {
+      width: 100%;
+      background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+      color: #0d0d1a;
+      font-weight: 600;
+    }
+    .btn-row { display: flex; gap: 10px; margin-bottom: 12px; }
+    .btn-download {
+      flex: 1;
+      background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+      color: #0d0d1a;
+      font-weight: 600;
+    }
+    .btn-copy {
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,200,100,0.2) !important;
+      color: rgba(248,245,240,0.7);
+    }
+    .btn-copy.copied {
+      background: rgba(80,200,120,0.15);
+      border-color: rgba(80,200,120,0.4) !important;
+      color: #80ffb0;
+    }
+    .btn-reset {
+      width: 100%;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(248,245,240,0.5);
+    }
+
+    /* Error */
+    .error-box {
+      background: rgba(255,80,80,0.1);
+      border: 1px solid rgba(255,80,80,0.3);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: #ff8080;
+      display: none;
+    }
+
+    /* QR section */
+    #qr-section { display: none; text-align: center; animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+    .qr-wrapper {
+      background: #f8f5f0;
+      border-radius: 16px;
+      padding: 20px;
+      display: inline-block;
+      margin-bottom: 20px;
+      box-shadow: 0 0 0 1px rgba(255,200,100,0.3), 0 8px 32px rgba(255,200,100,0.1);
+    }
+    #qr-canvas { display: block; }
+    .qr-meta { margin-top: 12px; }
+    .qr-meta .meta-name {
+      font-family: 'DM Mono', monospace;
+      font-weight: 500;
+      font-size: 13px;
+      color: #1a1a2e;
+    }
+    .qr-meta .meta-vpa {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: #666;
+      margin-top: 2px;
+    }
+    .qr-meta .meta-amount {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      font-weight: bold;
+      color: #c8960c;
+      margin-top: 4px;
+    }
+    .qr-meta .meta-note {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .gold-line {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,200,100,0.4), transparent);
+      margin: 20px 0;
+    }
+
+    .url-box {
+      background: rgba(255,200,100,0.05);
+      border: 1px solid rgba(255,200,100,0.15);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+    .url-box .url-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: rgba(255,200,100,0.8);
+      margin-bottom: 4px;
+    }
+    .url-box .url-text {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: rgba(248,245,240,0.5);
+      word-break: break-all;
+      line-height: 1.6;
+    }
+
+    .scan-note {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--text-faint);
+      margin-top: 16px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <!-- Header -->
+  <div class="header">
+    <div class="icon-ring">₹</div>
+    <h1>UPI QR Generator</h1>
+    <p class="subtitle">INSTANT PAYMENT QR CODES</p>
+  </div>
+
+  <!-- Form Section -->
+  <div id="form-section">
+    <div class="field">
+      <label class="field-label" for="vpa">UPI ID (VPA) *</label>
+      <input type="text" id="vpa" placeholder="e.g. 9876543210@okaxis or name@upi" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="payee-name">Payee Name *</label>
+      <input type="text" id="payee-name" placeholder="Your Name" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="amount">Amount (₹) — Optional</label>
+      <input type="number" id="amount" placeholder="Leave blank for open amount" min="0" step="0.01" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="note">Transaction Note — Optional</label>
+      <input type="text" id="note" placeholder="e.g. Dinner split" autocomplete="off" />
+    </div>
+
+    <div class="error-box" id="error-box"></div>
+
+    <button class="btn btn-primary" id="btn-generate">Generate QR Code</button>
+  </div>
+
+  <!-- QR Result Section -->
+  <div id="qr-section">
+    <div class="qr-wrapper">
+      <div id="qr-canvas"></div>
+      <div class="qr-meta">
+        <div class="meta-name" id="meta-name"></div>
+        <div class="meta-vpa" id="meta-vpa"></div>
+        <div class="meta-amount" id="meta-amount"></div>
+        <div class="meta-note" id="meta-note"></div>
+      </div>
+    </div>
+
+    <div class="gold-line"></div>
+
+    <div class="url-box">
+      <div class="url-label">UPI DEEP LINK</div>
+      <div class="url-text" id="upi-url-display"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-download" id="btn-download">↓ Download</button>
+      <button class="btn btn-copy" id="btn-copy">Copy URL</button>
+    </div>
+    <button class="btn btn-reset" id="btn-reset">← Generate New</button>
+
+    <p class="scan-note">Scan with any UPI app (GPay, PhonePe, Paytm, BHIM) to trigger payment directly.</p>
+  </div>
+</div>
+
+<script>
+$(function () {
+  let upiUrl = '';
+  let qrInstance = null;
+
+  function validateVPA(vpa) {
+    // VPA format: localpart@provider
+    // localpart: alphanumeric, dots, hyphens, underscores (can be all digits like phone numbers)
+    // provider: alphanumeric only (e.g. upi, okaxis, okhdfcbank, paytm, ybl, etc.)
+    return /^[a-zA-Z0-9.\-_]+@[a-zA-Z0-9]+$/.test(vpa);
+  }
+
+  function showError(msg) {
+    $('#error-box').text(msg).fadeIn(150);
+  }
+
+  function hideError() {
+    $('#error-box').fadeOut(100);
+  }
+
+  // Generate QR
+  $('#btn-generate').on('click', function () {
+    hideError();
+
+    const vpa = $('#vpa').val().trim();
+    const name = $('#payee-name').val().trim();
+    const amount = $('#amount').val().trim();
+    const note = $('#note').val().trim();
+
+    if (!vpa) { showError('UPI ID is required'); return; }
+    if (!validateVPA(vpa)) { showError('Invalid UPI ID format (e.g. 9876543210@okaxis or name@upi)'); return; }
+    if (!name) { showError('Payee name is required'); return; }
+
+    // Build UPI URL per official NPCI UPI Linking Spec v1.6/v1.7:
+    // ALL values are passed RAW — no URL encoding whatsoever.
+    // The spec examples use literal spaces: pn=Viral Mehta, tn=Pay to store, tr=TXN123456
+    // Encoding spaces as %20 or + causes BHIM to display garbled/blank payee names.
+    // - pa : raw VPA, @ stays as @
+    // - pn : raw payee name, spaces stay as spaces ("Viral Mehta" not "Viral%20Mehta")
+    // - tr : raw transaction reference — REQUIRED by BHIM (blocks Next button without it)
+    // - am + mam : plain decimal; both set together so BHIM locks the amount
+    // - tn : raw transaction note, spaces stay as spaces
+    // - cu : plain "INR"
+
+    let parts = [
+      'pa=' + vpa,
+      'pn=' + name
+      ];
+    if (amount && parseFloat(amount) > 0) {
+      const amt = parseFloat(amount).toFixed(2);
+      parts.push('am=' + amt);
+      parts.push('mam=' + amt);
+    }
+    if (note) parts.push('tn=' + note);
+    parts.push('cu=INR');
+
+    upiUrl = 'upi://pay?' + parts.join('&');
+
+    // Populate meta
+    $('#meta-name').text(name);
+    $('#meta-vpa').text(vpa);
+    $('#meta-amount').text(amount && parseFloat(amount) > 0 ? '₹ ' + parseFloat(amount).toFixed(2) : '').toggle(!!(amount && parseFloat(amount) > 0));
+    $('#meta-note').text(note).toggle(!!note);
+    $('#upi-url-display').text(upiUrl);
+
+    // Render QR
+    $('#qr-canvas').empty();
+    if (qrInstance) { qrInstance.clear(); qrInstance = null; }
+    qrInstance = new QRCode(document.getElementById('qr-canvas'), {
+      text: upiUrl,
+      width: 220,
+      height: 220,
+      colorDark: '#1a1a2e',
+      colorLight: '#f8f5f0',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+
+    // Swap views
+    $('#form-section').hide();
+    $('#qr-section').fadeIn(300);
+  });
+
+  // Allow Enter key to generate
+  $('#form-section input').on('keydown', function (e) {
+    if (e.key === 'Enter') $('#btn-generate').trigger('click');
+  });
+
+  // Download QR
+  $('#btn-download').on('click', function () {
+    const canvas = $('#qr-canvas canvas')[0];
+    if (!canvas) return;
+    const name = $('#payee-name').val().trim().replace(/\s+/g, '_') || 'upi';
+    const link = document.createElement('a');
+    link.download = 'upi-qr-' + name + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+
+  // Copy URL
+  $('#btn-copy').on('click', function () {
+    if (!upiUrl) return;
+    navigator.clipboard.writeText(upiUrl).then(function () {
+      $('#btn-copy').text('✓ Copied').addClass('copied');
+      setTimeout(function () {
+        $('#btn-copy').text('Copy URL').removeClass('copied');
+      }, 2000);
+    });
+  });
+
+  // Reset
+  $('#btn-reset').on('click', function () {
+    $('#qr-section').hide();
+    $('#form-section').fadeIn(300);
+    $('#vpa, #payee-name, #amount, #note').val('');
+    hideError();
+    upiUrl = '';
+    if (qrInstance) { qrInstance.clear(); qrInstance = null; }
+    $('#qr-canvas').empty();
+  });
+});
+</script>
+
+</body>
+</html>
